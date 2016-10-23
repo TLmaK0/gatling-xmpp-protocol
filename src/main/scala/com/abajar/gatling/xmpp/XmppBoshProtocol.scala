@@ -2,5 +2,5 @@ package com.abajar.gatling.xmpp
 
 import io.gatling.core.config.Protocol
 
-class XmppBoshProtocol(address: String, port: Int, path: String) extends XmppProtocol(address, port) {
+class XmppBoshProtocol(val address: String, val port: Int, val domain: String, val path: String) extends XmppProtocol(address, port, domain) {
 }

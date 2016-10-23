@@ -7,11 +7,11 @@ import scala.concurrent.duration._
 import com.abajar.gatling.xmpp.Predef._
 
 class XmppBoshTest extends Simulation {
-  val xmppProtocol = xmpp.endpoint("127.0.0.1", 5280).boshPath("/http-bind/")
+  val xmppProtocol = xmpp.endpoint("127.0.0.1", 5280, "test.com").boshPath("/http-bind/")
   val scn = scenario("XmppBosh")
     .exec(xmpp("user").connect())
     .pause(1)
     .exec(xmpp("user").disconnect())
 
-  setUp(scn.inject(atOnceUsers(5))).protocols(xmppProtocol)
+  setUp(scn.inject(atOnceUsers(10))).protocols(xmppProtocol)
 }

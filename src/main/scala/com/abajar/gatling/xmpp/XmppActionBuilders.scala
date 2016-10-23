@@ -12,6 +12,6 @@ class XmppConnectActionBuilder(requestName: Expression[String]) extends ActionBu
 }
 
 class XmppDisconnectActionBuilder(requestName: Expression[String]) extends ActionBuilder {
-  override def build(next: ActorRef, protocols: Protocols): ActorRef = actor(actorName("xmppConnect"))(new XmppConnectAction(requestName, next,
+  override def build(next: ActorRef, protocols: Protocols): ActorRef = actor(actorName("xmppConnect"))(new XmppDisconnectAction(requestName, next,
     protocols.getProtocol[XmppBoshProtocol].getOrElse(throw new UnsupportedOperationException("XmppBosh Protocol wasn't registered"))))
 }

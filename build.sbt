@@ -25,7 +25,8 @@ lazy val root = (project in file(".")).
     libraryDependencies += gatlingtestframework,
     libraryDependencies += akkaTest,
     libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % "test",
-    libraryDependencies += "org.scalamock" %% "scalamock-scalatest-support" % "3.2" % "test"
+    libraryDependencies += "org.scalamock" %% "scalamock-scalatest-support" % "3.2" % "test",
+    libraryDependencies += "org.igniterealtime.smack" % "smack-bosh" % "4.1.8"
   )
 
 enablePlugins(GatlingPlugin)
