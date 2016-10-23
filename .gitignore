@@ -3,3 +3,21 @@ project/target
 project/project/target
 *.swp
 *.swo
+*.class
+*.log
+*.orig
+
+# sbt specific
+.cache
+.history
+.lib/
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
