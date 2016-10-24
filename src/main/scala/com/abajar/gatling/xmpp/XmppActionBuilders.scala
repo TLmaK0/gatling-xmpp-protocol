@@ -12,6 +12,13 @@ class XmppConnectActionBuilder(requestName: Expression[String]) extends ActionBu
 }
 
 class XmppDisconnectActionBuilder(requestName: Expression[String]) extends ActionBuilder {
-  override def build(next: ActorRef, protocols: Protocols): ActorRef = actor(actorName("xmppConnect"))(new XmppDisconnectAction(requestName, next,
-    protocols.getProtocol[XmppBoshProtocol].getOrElse(throw new UnsupportedOperationException("XmppBosh Protocol wasn't registered"))))
+  override def build(next: ActorRef, protocols: Protocols): ActorRef = actor(actorName("xmppDisconnect"))(new XmppDisconnectAction(requestName, next))
+}
+
+class XmppJoinMucActionBuilder(requestName: Expression[String], message: Expression[String]) extends ActionBuilder {
+  override def build(next: ActorRef, protocols: Protocols): ActorRef = actor(actorName("xmppJoin"))(new XmppJoinMucAction(requestName, next, message))
+}
+
+class XmppSubscribePubsubActionBuilder(requestName: Expression[String], nodeName: Expression[String]) extends ActionBuilder {
+  override def build(next: ActorRef, protocols: Protocols): ActorRef = actor(actorName("xmppJoin"))(new XmppSubscribePubsubAction(requestName, next, nodeName))
 }

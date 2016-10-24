@@ -8,12 +8,13 @@ import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper._
 import io.gatling.core.result.message.{OK, KO, Status}
 import io.gatling.core.result.writer.DataWriterClient
+import org.jivesoftware.smackx.muc.MultiUserChatManager
 import org.jivesoftware.smack.AbstractXMPPConnection
 
 import scala.concurrent.Future
 import scala.util.{Success, Failure}
 
-class XmppDisconnectAction(requestName: Expression[String], val next: ActorRef) extends Interruptable with Failable {
+class XmppJoinMucAction(requestName: Expression[String], val next: ActorRef, serviceName: Expression[String]) extends Interruptable with Failable {
   override def executeOrFail(session: Session): Validation[_] = {
     def logResult(session: Session, requestName: String, status: Status, started: Long, ended: Long) {
       new DataWriterClient{}.writeRequestData(
@@ -27,16 +28,18 @@ class XmppDisconnectAction(requestName: Expression[String], val next: ActorRef) 
       )
     }
 
-    def disconnect(session: Session, requestName: String) {
+    def join(session: Session, requestName: String, serviceName: String) {
       val start = nowMillis
-      val disconnect = Future {
-        session("connection").as[AbstractXMPPConnection].disconnect()
+      val join = Future {
+        val connection = session("connection").as[AbstractXMPPConnection]
+        val mucm = MultiUserChatManager.getInstanceFor(connection)
+        mucm.getMultiUserChat(serviceName).join("test" + start)
       }
 
       val updatedSession = session.set("connection", null)
 
-      disconnect.onComplete { 
-        case Success(_) => {
+      join.onComplete { 
+        case Success(connection) => {
           val end = nowMillis
           logResult(updatedSession, requestName, OK, start, end)
           next ! updatedSession
@@ -52,6 +55,7 @@ class XmppDisconnectAction(requestName: Expression[String], val next: ActorRef) 
 
     for {
       requestName <- requestName(session)
-    } yield disconnect(session, requestName)
+      serviceName <- serviceName(session)
+    } yield join(session, requestName, serviceName)
   }
 }
