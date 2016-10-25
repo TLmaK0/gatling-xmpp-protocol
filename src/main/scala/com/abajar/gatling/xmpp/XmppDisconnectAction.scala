@@ -8,12 +8,16 @@ import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper._
 import io.gatling.core.result.message.{OK, KO, Status}
 import io.gatling.core.result.writer.DataWriterClient
-import org.jivesoftware.smack.AbstractXMPPConnection
 
 import scala.concurrent.Future
 import scala.util.{Success, Failure}
 
+import scala.concurrent.duration._
+import akka.util.Timeout
+
 class XmppDisconnectAction(requestName: Expression[String], val next: ActorRef) extends Interruptable with Failable {
+  implicit val timeout = Timeout(5 seconds)
+
   override def executeOrFail(session: Session): Validation[_] = {
     def logResult(session: Session, requestName: String, status: Status, started: Long, ended: Long) {
       new DataWriterClient{}.writeRequestData(
@@ -28,25 +32,19 @@ class XmppDisconnectAction(requestName: Expression[String], val next: ActorRef) 
     }
 
     def disconnect(session: Session, requestName: String) {
-      val start = nowMillis
-      val disconnect = Future {
-        session("connection").as[AbstractXMPPConnection].disconnect()
-      }
-
-      val updatedSession = session.set("connection", null)
+      val disconnect = session("client").as[ActorRef] ? Disconnect
 
       disconnect.onComplete { 
-        case Success(_) => {
-          val end = nowMillis
-          logResult(updatedSession, requestName, OK, start, end)
-          next ! updatedSession
+        case Success(TimeSpent(start, end)) => {
+          logResult(session, requestName, OK, start, end)
+          next ! session
         }
-        case Failure(e) => {
+        case Failure(XmppClientException(e, TimeSpent(start, end))) => {
           logger.error(e.getMessage)
-          val end = nowMillis
-          logResult(updatedSession, requestName, KO, start, end)
-          next ! updatedSession 
+          logResult(session, requestName, KO, start, end)
+          next ! session 
         }
+        case _ => ???
       }
     }
 

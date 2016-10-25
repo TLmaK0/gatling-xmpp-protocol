@@ -8,16 +8,16 @@ import io.gatling.core.session.Session
 import io.gatling.core.util.TimeHelper._
 import io.gatling.core.result.message.{OK, KO, Status}
 import io.gatling.core.result.writer.DataWriterClient
-import org.jivesoftware.smackx.pubsub.PubSubManager 
-import org.jivesoftware.smackx.pubsub.LeafNode
-import org.jivesoftware.smack.AbstractXMPPConnection
-import java.io.StringWriter
-import java.io.PrintWriter
 
 import scala.concurrent.Future
 import scala.util.{Success, Failure}
 
+import scala.concurrent.duration._
+import akka.util.Timeout
+
 class XmppSubscribePubsubAction(requestName: Expression[String], val next: ActorRef, nodeName: Expression[String]) extends Interruptable with Failable {
+  implicit val timeout = Timeout(5 seconds)
+
   override def executeOrFail(session: Session): Validation[_] = {
     def logResult(session: Session, requestName: String, status: Status, started: Long, ended: Long) {
       new DataWriterClient{}.writeRequestData(
@@ -32,34 +32,18 @@ class XmppSubscribePubsubAction(requestName: Expression[String], val next: Actor
     }
 
     def subscribe(session: Session, requestName: String, nodeName: String) {
-      val start = nowMillis
-      val pubsub = Future {
-        val connection = session("connection").as[AbstractXMPPConnection]
-        val pubsubMgr = new PubSubManager(connection)
-        logger.debug("-------------")
-        logger.debug(nodeName)
-        logger.debug("-------------")
-        val node = pubsubMgr.getNode(nodeName)
-        node.asInstanceOf[LeafNode].subscribe(connection.getUser())
-      }
-
+      val pubsub = session("client").as[ActorRef] ? Subscribe(nodeName) 
       pubsub.onComplete { 
-        case Success(_) => {
-          val end = nowMillis
+        case Success(TimeSpent(start, end)) => {
           logResult(session, requestName, OK, start, end)
           next ! session
         }
-        case Failure(e) => {
+        case Failure(XmppClientException(e, TimeSpent(start, end))) => {
           logger.error(e.getMessage)
-
-          val sw = new StringWriter
-          e.printStackTrace(new PrintWriter(sw))
-          logger.error(sw.toString)
-
-          val end = nowMillis
           logResult(session, requestName, KO, start, end)
           next ! session 
         }
+        case _ => ???
       }
     }
 

@@ -1,6 +1,9 @@
 package com.abajar.gatling.xmpp
 
+
+import akka.actor.ActorDSL._
 import akka.actor.ActorRef
+
 import io.gatling.core.action.{Failable, Interruptable}
 import io.gatling.core.session.Expression
 import io.gatling.core.validation._
@@ -14,12 +17,11 @@ import scala.util.{Success, Failure}
 
 import java.io.IOException
 
-import org.jivesoftware.smack.SmackException
-import org.jivesoftware.smack.XMPPException
-import org.jivesoftware.smack.bosh.BOSHConfiguration
-import org.jivesoftware.smack.bosh.XMPPBOSHConnection
+import scala.concurrent.duration._
+import akka.util.Timeout
+class XmppConnectAction(requestName: Expression[String], val next: ActorRef, protocol: XmppProtocol, nodeName: Expression[String]) extends Interruptable with Failable {
+  implicit val timeout = Timeout(5 seconds)
 
-class XmppConnectAction(requestName: Expression[String], val next: ActorRef, protocol: XmppProtocol) extends Interruptable with Failable {
   override def executeOrFail(session: Session): Validation[_] = {
     def logResult(session: Session, requestName: String, status: Status, started: Long, ended: Long) {
       new DataWriterClient{}.writeRequestData(
@@ -33,41 +35,32 @@ class XmppConnectAction(requestName: Expression[String], val next: ActorRef, pro
       )
     }
 
-    def connect(session: Session, requestName: String) {
-      val start = nowMillis
-      val connect = Future {
-        protocol match {
-            case boshProtocol: XmppBoshProtocol => {
-              val conf = BOSHConfiguration.builder()
-                  .setFile(boshProtocol.path).setHost(boshProtocol.address).setServiceName(boshProtocol.domain).setPort(boshProtocol.port)
-                  .build()
-              val connection = new XMPPBOSHConnection(conf)
-              connection.connect()
-              connection.login()
-              connection
-            }
-            case _ => ???
-          }
+    def connect(session: Session, requestName: String, nodeName: String) {
+      val client = actor(context, actorName("xmppClient"))(new XmppClient())
+      val connect = protocol match {
+        case boshProtocol: XmppBoshProtocol => {
+          client ? ConnectBOSH(boshProtocol.address, boshProtocol.port, boshProtocol.domain, boshProtocol.path, nodeName)
+        }
+        case _ => ???
       }
 
       connect.onComplete { 
-        case Success(connection) => {
-          val end = nowMillis
-          val updatedSession = session.set("connection", connection)
-          logResult(updatedSession, requestName, OK, start, end)
-          next ! updatedSession
+        case Success(TimeSpent(start, end)) => {
+          logResult(session, requestName, OK, start, end)
+          next ! session.set("client", client)
         }
-        case Failure(e) => {
-          val end = nowMillis
+        case Failure(XmppClientException(e, TimeSpent(start, end))) => {
           logger.error(e.getMessage)
           logResult(session, requestName, KO, start, end)
           next ! session
         }
+        case _ => ???
       }
     }
 
     for {
       requestName <- requestName(session)
-    } yield connect(session, requestName)
+      nodeName <- nodeName(session)
+    } yield connect(session, requestName, nodeName)
   }
 }
