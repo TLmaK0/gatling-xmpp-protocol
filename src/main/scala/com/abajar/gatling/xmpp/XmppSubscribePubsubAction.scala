@@ -35,12 +35,9 @@ class XmppSubscribePubsubAction(requestName: Expression[String], val next: Actor
       val start = nowMillis
       val pubsub = Future {
         val connection = session("connection").as[AbstractXMPPConnection]
-        val pubsubMgr = new PubSubManager(connection)
-        logger.debug("-------------")
-        logger.debug(nodeName)
-        logger.debug("-------------")
-        val node = pubsubMgr.getNode(nodeName)
-        node.asInstanceOf[LeafNode].subscribe(connection.getUser())
+        val pubsubMgr = PubSubManager.getInstance(connection)
+        val node = pubsubMgr.getNode(nodeName).asInstanceOf[LeafNode]
+        node.subscribe(connection.getUser().toString())
       }
 
       pubsub.onComplete { 

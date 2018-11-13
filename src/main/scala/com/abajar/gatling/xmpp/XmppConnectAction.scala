@@ -18,6 +18,9 @@ import org.jivesoftware.smack.SmackException
 import org.jivesoftware.smack.XMPPException
 import org.jivesoftware.smack.bosh.BOSHConfiguration
 import org.jivesoftware.smack.bosh.XMPPBOSHConnection
+import org.jivesoftware.smack.roster.Roster
+
+import org.jxmpp.jid.impl.JidCreate;
 
 class XmppConnectAction(requestName: Expression[String], val next: ActorRef, protocol: XmppProtocol) extends Interruptable with Failable {
   override def executeOrFail(session: Session): Validation[_] = {
@@ -39,9 +42,14 @@ class XmppConnectAction(requestName: Expression[String], val next: ActorRef, pro
         protocol match {
             case boshProtocol: XmppBoshProtocol => {
               val conf = BOSHConfiguration.builder()
-                  .setFile(boshProtocol.path).setHost(boshProtocol.address).setServiceName(boshProtocol.domain).setPort(boshProtocol.port)
+                  .setFile(boshProtocol.path)
+                  .setHost(boshProtocol.address)
+                  .setServiceName(JidCreate.domainBareFrom(boshProtocol.domain))
+                  .setPort(boshProtocol.port)
+                  .performSaslAnonymousAuthentication()
                   .build()
               val connection = new XMPPBOSHConnection(conf)
+              Roster.getInstanceFor(connection).setRosterLoadedAtLogin(false);
               connection.connect()
               connection.login()
               connection

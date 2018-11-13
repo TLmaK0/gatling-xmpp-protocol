@@ -11,6 +11,9 @@ import io.gatling.core.result.writer.DataWriterClient
 import org.jivesoftware.smackx.muc.MultiUserChatManager
 import org.jivesoftware.smack.AbstractXMPPConnection
 
+import org.jxmpp.jid.impl.JidCreate;
+import org.jxmpp.jid.parts.Resourcepart;
+
 import scala.concurrent.Future
 import scala.util.{Success, Failure}
 
@@ -33,7 +36,7 @@ class XmppJoinMucAction(requestName: Expression[String], val next: ActorRef, ser
       val join = Future {
         val connection = session("connection").as[AbstractXMPPConnection]
         val mucm = MultiUserChatManager.getInstanceFor(connection)
-        mucm.getMultiUserChat(serviceName).join("test" + start)
+        mucm.getMultiUserChat(JidCreate.entityBareFrom(serviceName)).join(Resourcepart.from("test" + start))
       }
 
       val updatedSession = session.set("connection", null)
