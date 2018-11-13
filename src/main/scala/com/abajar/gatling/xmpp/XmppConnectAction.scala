@@ -22,7 +22,7 @@ import org.jivesoftware.smack.roster.Roster
 
 import org.jxmpp.jid.impl.JidCreate;
 
-class XmppConnectAction(requestName: Expression[String], val next: ActorRef, protocol: XmppProtocol) extends Interruptable with Failable {
+class XmppConnectAction(requestName: Expression[String], username: Expression[String], password: Expression[String], val next: ActorRef, protocol: XmppProtocol) extends Interruptable with Failable {
   override def executeOrFail(session: Session): Validation[_] = {
     def logResult(session: Session, requestName: String, status: Status, started: Long, ended: Long) {
       new DataWriterClient{}.writeRequestData(
@@ -36,7 +36,7 @@ class XmppConnectAction(requestName: Expression[String], val next: ActorRef, pro
       )
     }
 
-    def connect(session: Session, requestName: String) {
+    def connect(session: Session, requestName: String, username: String, password: String) {
       val start = nowMillis
       val connect = Future {
         protocol match {
@@ -46,9 +46,11 @@ class XmppConnectAction(requestName: Expression[String], val next: ActorRef, pro
                   .setHost(boshProtocol.address)
                   .setServiceName(JidCreate.domainBareFrom(boshProtocol.domain))
                   .setPort(boshProtocol.port)
-                  .performSaslAnonymousAuthentication()
-                  .build()
-              val connection = new XMPPBOSHConnection(conf)
+
+              if (username == "") conf.performSaslAnonymousAuthentication()
+              else conf.setUsernameAndPassword(username, password);
+
+              val connection = new XMPPBOSHConnection(conf.build())
               Roster.getInstanceFor(connection).setRosterLoadedAtLogin(false);
               connection.connect()
               connection.login()
@@ -76,6 +78,8 @@ class XmppConnectAction(requestName: Expression[String], val next: ActorRef, pro
 
     for {
       requestName <- requestName(session)
-    } yield connect(session, requestName)
+      username <- username(session)
+      password <- password(session)
+    } yield connect(session, requestName, username, password)
   }
 }

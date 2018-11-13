@@ -10,34 +10,17 @@ import io.gatling.core.result.message.{OK, KO, Status}
 import io.gatling.core.result.writer.DataWriterClient
 import org.jivesoftware.smackx.pubsub.PubSubManager 
 import org.jivesoftware.smackx.pubsub.LeafNode
-import org.jivesoftware.smackx.pubsub.ItemPublishEvent
 import org.jivesoftware.smackx.pubsub.Item
+import org.jivesoftware.smackx.pubsub.PayloadItem
+import org.jivesoftware.smackx.pubsub.SimplePayload
 import org.jivesoftware.smack.AbstractXMPPConnection
-import org.jivesoftware.smackx.pubsub.listener.ItemEventListener
 import java.io.StringWriter
 import java.io.PrintWriter
 
 import scala.concurrent.Future
 import scala.util.{Success, Failure}
 
-class XmppEventListener(session: Session) extends ItemEventListener[Item] {
-  def handlePublishedItems(publishedEvent: ItemPublishEvent[Item]) {
-    val ended = nowMillis
-    val pattern = """.*>(\d+)</text>.*""".r
-    val pattern(start) = publishedEvent.getItems.get(0).toXML(null)
-    new DataWriterClient{}.writeRequestData(
-      session,
-      "message-received",
-      start.toLong,
-      ended,
-      ended,
-      ended,
-      OK
-    )
-  }
-}
-
-class XmppSubscribePubsubAction(requestName: Expression[String], val next: ActorRef, nodeName: Expression[String]) extends Interruptable with Failable {
+class XmppPublishPubsubAction(requestName: Expression[String], val next: ActorRef, nodeName: Expression[String]) extends Interruptable with Failable {
   override def executeOrFail(session: Session): Validation[_] = {
     def logResult(session: Session, requestName: String, status: Status, started: Long, ended: Long) {
       new DataWriterClient{}.writeRequestData(
@@ -51,14 +34,13 @@ class XmppSubscribePubsubAction(requestName: Expression[String], val next: Actor
       )
     }
 
-    def subscribe(session: Session, requestName: String, nodeName: String) {
+    def publish(session: Session, requestName: String, nodeName: String) {
       val start = nowMillis
       val pubsub = Future {
         val connection = session("connection").as[AbstractXMPPConnection]
         val pubsubMgr = PubSubManager.getInstance(connection)
         val node = pubsubMgr.getNode(nodeName).asInstanceOf[LeafNode]
-        node.addItemEventListener(new XmppEventListener(session));
-        node.subscribe(connection.getUser().toString())
+        node.send(new PayloadItem(nodeName+"*" + System.currentTimeMillis(), new SimplePayload("<text xmlns='pubsub:test'>" + start + "</text>")))
       }
 
       pubsub.onComplete { 
@@ -84,6 +66,6 @@ class XmppSubscribePubsubAction(requestName: Expression[String], val next: Actor
     for {
       requestName <- requestName(session)
       nodeName <- nodeName(session)
-    } yield subscribe(session, requestName, nodeName)
+    } yield publish(session, requestName, nodeName)
   }
 }
